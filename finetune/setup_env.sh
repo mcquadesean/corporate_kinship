@@ -2,7 +2,8 @@
 # One-time setup of the KLC conda env for fine-tuning. Run on a login node.
 set -e
 
-source "$(conda info --base)/etc/profile.d/conda.sh"
+CONDA_SH="${CONDA_SH:-/software/miniconda3/4.12.0/etc/profile.d/conda.sh}"
+source "$CONDA_SH"
 conda create -y -n ck_ft python=3.10
 conda activate ck_ft
 
