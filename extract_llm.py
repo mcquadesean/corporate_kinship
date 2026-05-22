@@ -46,7 +46,8 @@ def call_model(server, model, entry, timeout=120):
             {"role": "user", "content": USER_TEMPLATE.format(entry=entry)},
         ],
         "temperature": 0,
-        "max_tokens": 600,
+        "max_tokens": 400,
+        "response_format": {"type": "json_object"},
     }
     req = urllib.request.Request(
         server.rstrip("/") + "/v1/chat/completions",
