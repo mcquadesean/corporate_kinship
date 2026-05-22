@@ -115,9 +115,19 @@ def page_files(volume_dir):
     return [p for p in paths if p.name[0].isdigit()]
 
 
-def parse_volume(volume_dir, htid, volume_year):
+def select_pages(paths, page_range):
+    if not page_range:
+        return paths
+    start, _, end = page_range.partition("-")
+    start = int(start)
+    end = int(end) if end else start
+    return paths[start - 1:end]
+
+
+def parse_volume(volume_dir, htid, volume_year, page_range=None):
+    paths = select_pages(page_files(volume_dir), page_range)
     lines = []
-    for path in page_files(volume_dir):
+    for path in paths:
         lines.extend(path.read_text(errors="replace").splitlines())
     records = []
     for block in tqdm(list(iter_record_blocks(lines)), desc="records"):
@@ -137,10 +147,12 @@ FIELDS = [
     "raw_entry",
 ]
 
+EXPORT_FIELDS = [f for f in FIELDS if f != "raw_entry"]
 
-def write_csv(records, out_path):
+
+def write_csv(records, out_path, fields):
     with open(out_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=FIELDS)
+        writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(records)
 
@@ -151,10 +163,16 @@ def main():
     ap.add_argument("--htid", required=True)
     ap.add_argument("--year", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--pages", default=None,
+                    help="page-file range into the sorted list, e.g. 600-610")
     args = ap.parse_args()
-    records = parse_volume(args.volume_dir, args.htid, args.year)
-    write_csv(records, args.out)
-    print(f"parsed {len(records)} person records -> {args.out}")
+    records = parse_volume(args.volume_dir, args.htid, args.year, args.pages)
+    write_csv(records, args.out, FIELDS)
+    export_path = re.sub(r"\.csv$", "", args.out) + "_export.csv"
+    write_csv(records, export_path, EXPORT_FIELDS)
+    print(f"parsed {len(records)} person records")
+    print(f"  internal (with raw text): {args.out}")
+    print(f"  export-safe (no raw text): {export_path}")
 
 
 if __name__ == "__main__":
