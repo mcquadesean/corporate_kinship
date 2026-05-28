@@ -82,14 +82,22 @@ def split_name(header_text):
     return surname, given_first, middle, suffix
 
 
+EDU_RE = re.compile(r"\b(Univ|College|Coll\.|Institute|Inst\.|Academy|Acad\.|School|Sch\.|Seminary)", re.IGNORECASE)
+
+
 def parse_birth(text):
     m = BIRTH_RE.search(text)
     if not m:
         return "", ""
     year = m.group(1)
-    place = m.group(2).strip()
-    place = re.split(r"\s*-\s*|;", place)[0].strip(" ,")
-    return year, place
+    place = m.group(2)
+    place = re.split(r"\s*[-;]\s*", place)[0]
+    em = EDU_RE.search(place)
+    if em:
+        place = place[:em.start()]
+    place = re.sub(r"\s+\d{4}.*$", "", place)
+    place = re.sub(r"\s+\S+$", "", place) if EDU_RE.search(m.group(2)) and " " in place.strip() else place
+    return year, place.strip(" ,.")
 
 
 def parse_record(block, htid, volume_year):
@@ -147,7 +155,8 @@ FIELDS = [
     "raw_entry",
 ]
 
-EXPORT_FIELDS = [f for f in FIELDS if f != "raw_entry"]
+RELEASE_FIELDS = FIELDS
+NORAW_FIELDS = [f for f in FIELDS if f != "raw_entry"]
 
 
 def write_csv(records, out_path, fields):
@@ -167,12 +176,12 @@ def main():
                     help="page-file range into the sorted list, e.g. 600-610")
     args = ap.parse_args()
     records = parse_volume(args.volume_dir, args.htid, args.year, args.pages)
-    write_csv(records, args.out, FIELDS)
-    export_path = re.sub(r"\.csv$", "", args.out) + "_export.csv"
-    write_csv(records, export_path, EXPORT_FIELDS)
+    write_csv(records, args.out, RELEASE_FIELDS)
+    noraw_path = re.sub(r"\.csv$", "", args.out) + "_noraw.csv"
+    write_csv(records, noraw_path, NORAW_FIELDS)
     print(f"parsed {len(records)} person records")
-    print(f"  internal (with raw text): {args.out}")
-    print(f"  export-safe (no raw text): {export_path}")
+    print(f"  release candidate (parsed + raw_entry column): {args.out}")
+    print(f"  no-raw fallback (parsed fields only):          {noraw_path}")
 
 
 if __name__ == "__main__":
